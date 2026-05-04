@@ -3,7 +3,7 @@
 An arcade-style Snake game built with **PixiJS v8**. Help the bunny eat eggs to grow, but don't hit the walls or yourself!
 
 ## 🚀 Live Demo
-**[Insert Your GitHub Pages Link Here]**
+**[(https://saibhaskar277.github.io/SnakeGamePixi/)]**
 
 ## 🎮 How to Play
 - **Arrow Keys**: Move the Bunny.
