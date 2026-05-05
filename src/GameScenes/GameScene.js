@@ -21,15 +21,17 @@ export class GameScene extends Scene {
   }
 
   async init() {
-    this.headTexture = await Assets.load("https://pixijs.com/assets/bunny.png");
+    this.headTexture = await Assets.load(
+      "/src/Assets/SnakeGameSprites/snakeHead.png",
+    );
     this.bodyTexture = await Assets.load(
-      "https://pixijs.com/assets/flowerTop.png",
+      "/src/Assets/SnakeGameSprites/snakeBody.png",
     );
     this.foodTexture = await Assets.load(
-      "https://pixijs.com/assets/eggHead.png",
+      "/src/Assets/SnakeGameSprites/food.png",
     );
     this.lifeFoodTexture = await Assets.load(
-      "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/2764.png",
+      "/src/Assets/SnakeGameSprites/health.png",
     );
 
     this.uiGraphics = new Graphics();

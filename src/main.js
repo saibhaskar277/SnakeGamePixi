@@ -8,7 +8,7 @@ async function start() {
   await app.init({
     width: window.innerWidth,
     height: window.innerHeight,
-    backgroundColor: "#793d3d",
+    backgroundColor: "#1d1a1a",
     antialias: true,
     resizeTo: window,
   });
