@@ -22,16 +22,17 @@ export class GameScene extends Scene {
 
   async init() {
     this.headTexture = await Assets.load(
-      "/src/Assets/SnakeGameSprites/snakeHead.png",
+      "Assets/SnakeGameSprites/snakeHead.png",
     );
+
     this.bodyTexture = await Assets.load(
-      "/src/Assets/SnakeGameSprites/snakeBody.png",
+      "Assets/SnakeGameSprites/snakeBody.png",
     );
-    this.foodTexture = await Assets.load(
-      "/src/Assets/SnakeGameSprites/food.png",
-    );
+
+    this.foodTexture = await Assets.load("Assets/SnakeGameSprites/food.png");
+
     this.lifeFoodTexture = await Assets.load(
-      "/src/Assets/SnakeGameSprites/health.png",
+      "Assets/SnakeGameSprites/health.png",
     );
 
     this.uiGraphics = new Graphics();
