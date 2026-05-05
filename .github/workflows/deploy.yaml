@@ -2,38 +2,44 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main] # Runs every time you push to the main branch
+    branches: [main]
 
 permissions:
   contents: read
   pages: write
   id-token: write
 
+# ✅ opt-in to Node 24 now (important)
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: 20   # 👈 your project runtime (fine)
+          cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci   # ✅ better than npm install for CI
 
       - name: Build
-        run: npx vite build --base=/SnakeGamePixi/ 
+        run: npm run build -- --base=/SnakeGamePixi/
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './dist'
+          path: ./dist
 
-      - name: Deploy to GitHub Pages
+      - name: Deploy
         uses: actions/deploy-pages@v4
