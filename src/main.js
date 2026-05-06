@@ -1,7 +1,7 @@
 import { Application } from "pixi.js";
 import { sceneManager, SceneName } from "./SceneManager.js";
 import { GameScene } from "./GameScenes/GameScene.js";
-
+import { MenuScene } from "./GameScenes/MenuSecne.js";
 async function start() {
   const app = new Application();
   globalThis.__PIXI_APP__ = app;
@@ -20,8 +20,10 @@ async function start() {
 
   // Add and change scene
   const gameScene = new GameScene(app);
+
   sceneManager.addScene(gameScene);
-  await sceneManager.changeScene(SceneName.Game);
+  sceneManager.addScene(new MenuScene(app));
+  await sceneManager.changeScene(SceneName.MainMenu);
 
   app.ticker.add((ticker) => sceneManager.update(ticker));
 

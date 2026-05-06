@@ -2,6 +2,7 @@ import { Container } from "pixi.js";
 
 export const SceneName = {
   Game: "Game",
+  MainMenu: "MainMenu",
 };
 
 export class Scene extends Container {

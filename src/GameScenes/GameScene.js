@@ -1,19 +1,8 @@
 import { Scene, SceneName } from "../SceneManager.js";
 import { Container, Assets, Sprite, Graphics, Text } from "pixi.js";
-
-const GRID_SIZE = 20;
-const GAME_SPEED = 120;
-const COLUMNS = 36;
-const ROWS = 22;
-const SCREEN_OFFSET = 60;
-const FOOD_COUNT = 3;
-const FOOD_MOVE_EVERY = 4;
-const INITIAL_LIVES = 3;
-const MAX_LIVES = 6;
-const BLINK_DURATION = 1500;
-const LIFE_FOOD_DURATION = 5000;
-const CENTER_X = Math.floor(COLUMNS / 2);
-const CENTER_Y = Math.floor(ROWS / 2);
+import { GameConfig as Config } from "../GameConfig.js";
+import { InputManager } from "../InputManager.js";
+import { UIFactory } from "../UIFactory.js";
 
 export class GameScene extends Scene {
   constructor(app) {
@@ -24,13 +13,10 @@ export class GameScene extends Scene {
     this.headTexture = await Assets.load(
       "Assets/SnakeGameSprites/snakeHead.png",
     );
-
     this.bodyTexture = await Assets.load(
       "Assets/SnakeGameSprites/snakeBody.png",
     );
-
     this.foodTexture = await Assets.load("Assets/SnakeGameSprites/food.png");
-
     this.lifeFoodTexture = await Assets.load(
       "Assets/SnakeGameSprites/health.png",
     );
@@ -48,7 +34,7 @@ export class GameScene extends Scene {
     this.bodySprites = [];
     this.foodSprites = [];
 
-    for (let i = 0; i < FOOD_COUNT; i++) {
+    for (let i = 0; i < Config.FOOD_COUNT; i++) {
       const s = new Sprite(this.foodTexture);
       s.anchor.set(0.5);
       this.foodContainer.addChild(s);
@@ -70,28 +56,38 @@ export class GameScene extends Scene {
     });
     this.addChild(this.scoreText, this.livesText);
 
-    this.pauseButton = this._createButton("PAUSE", 80, () =>
+    // Using UIFactory
+    this.pauseButton = UIFactory.createButton("PAUSE", 80, () =>
       this.isGameOver ? this.resetGame() : this.togglePause(),
     );
-    this.wrapButton = this._createButton("WRAP: OFF", 130, () =>
-      this.toggleWrap(),
+    this.resetButton = UIFactory.createButton("RESET", 100, () =>
+      this.resetGame(),
     );
-    this.resetButton = this._createButton("RESET", 100, () => this.resetGame());
 
-    this._keyHandler = (e) => this.handleKey(e);
-    window.addEventListener("keydown", this._keyHandler);
+    this.isWrapMode = false;
+    this.wrapToggle = UIFactory.createToggle(
+      "WRAP",
+      this.isWrapMode,
+      (checked) => {
+        this.isWrapMode = checked;
+      },
+    );
+
+    this.addChild(this.pauseButton, this.resetButton, this.wrapToggle);
+
+    // Using InputManager
+    this.inputManager = new InputManager({
+      onPauseToggle: () => this.togglePause(),
+      onDirectionChange: (move) => this.handleDirectionInput(move),
+    });
+    this.inputManager.start();
 
     this.resetGame();
     this.handleResize();
   }
 
   onEnter() {
-    console.log("Entered Game Scene");
     this.handleResize();
-  }
-
-  onExit() {
-    console.log("Leaving Game Scene");
   }
 
   onResize() {
@@ -99,8 +95,15 @@ export class GameScene extends Scene {
   }
 
   destroyScene() {
-    window.removeEventListener("keydown", this._keyHandler);
+    this.inputManager.stop();
     super.destroyScene();
+  }
+
+  handleDirectionInput(move) {
+    if (this.isPaused || this.isGameOver) return;
+    if (move.x !== -this.direction.x && move.y !== -this.direction.y) {
+      this.nextDirection = move;
+    }
   }
 
   update(ticker) {
@@ -110,7 +113,7 @@ export class GameScene extends Scene {
 
     if (this.lifeFood) {
       this.lifeFoodTimer -= dt;
-      const progress = 1 - this.lifeFoodTimer / LIFE_FOOD_DURATION;
+      const progress = 1 - this.lifeFoodTimer / Config.LIFE_FOOD_DURATION;
       const currentSpeed = this._lerp(0.005, 0.04, progress);
       this.lifeFoodPhase += dt * currentSpeed;
       if (this.lifeFoodTimer <= 0) this.lifeFood = null;
@@ -121,7 +124,7 @@ export class GameScene extends Scene {
       const show = Math.floor(this.blinkTimer / 150) % 2 === 0;
       for (const s of this.bodySprites) s.alpha = show ? 1 : 0.1;
 
-      if (this.blinkTimer >= BLINK_DURATION) {
+      if (this.blinkTimer >= Config.BLINK_DURATION) {
         this.isBlinking = false;
         this.blinkTimer = 0;
         for (const s of this.bodySprites) s.alpha = 1;
@@ -136,8 +139,8 @@ export class GameScene extends Scene {
     }
 
     this.accumulator += dt;
-    if (!this.isGameOver && this.accumulator >= GAME_SPEED) {
-      this.accumulator -= GAME_SPEED;
+    if (!this.isGameOver && this.accumulator >= Config.GAME_SPEED) {
+      this.accumulator -= Config.GAME_SPEED;
       this.updateSnake();
     }
     this.draw();
@@ -147,7 +150,7 @@ export class GameScene extends Scene {
     this.direction = this.nextDirection;
     this.tickCounter++;
 
-    if (this.tickCounter % FOOD_MOVE_EVERY === 0) this.moveFoods();
+    if (this.tickCounter % Config.FOOD_MOVE_EVERY === 0) this.moveFoods();
 
     const head = {
       x: this.snake[0].x + this.direction.x,
@@ -155,15 +158,15 @@ export class GameScene extends Scene {
     };
 
     if (this.isWrapMode) {
-      if (head.x < 0) head.x = COLUMNS - 1;
-      else if (head.x >= COLUMNS) head.x = 0;
-      if (head.y < 0) head.y = ROWS - 1;
-      else if (head.y >= ROWS) head.y = 0;
+      if (head.x < 0) head.x = Config.COLUMNS - 1;
+      else if (head.x >= Config.COLUMNS) head.x = 0;
+      if (head.y < 0) head.y = Config.ROWS - 1;
+      else if (head.y >= Config.ROWS) head.y = 0;
     } else if (
       head.x < 0 ||
-      head.x >= COLUMNS ||
+      head.x >= Config.COLUMNS ||
       head.y < 0 ||
-      head.y >= ROWS
+      head.y >= Config.ROWS
     ) {
       this.loseLife();
       return;
@@ -196,7 +199,7 @@ export class GameScene extends Scene {
       head.x === this.lifeFood.x &&
       head.y === this.lifeFood.y
     ) {
-      this.lives = Math.min(this.lives + 1, MAX_LIVES);
+      this.lives = Math.min(this.lives + 1, Config.MAX_LIVES);
       this.updateLivesText();
       this.lifeFood = null;
     }
@@ -208,7 +211,7 @@ export class GameScene extends Scene {
     const pos = this._randomEmpty(this._buildOccupied());
     if (pos) {
       this.lifeFood = { x: pos.x, y: pos.y };
-      this.lifeFoodTimer = LIFE_FOOD_DURATION;
+      this.lifeFoodTimer = Config.LIFE_FOOD_DURATION;
       this.lifeFoodPhase = 0;
       this.foodForNextLife =
         this.foodCollected + 5 + Math.floor(Math.random() * 6);
@@ -230,9 +233,9 @@ export class GameScene extends Scene {
           ny = f.y + d.y;
         if (
           nx >= 0 &&
-          nx < COLUMNS &&
+          nx < Config.COLUMNS &&
           ny >= 0 &&
-          ny < ROWS &&
+          ny < Config.ROWS &&
           !occ.has(this._cellKey(nx, ny))
         ) {
           f.x = nx;
@@ -251,10 +254,10 @@ export class GameScene extends Scene {
       if (i < this.foods.length) {
         spr.visible = true;
         spr.position.set(
-          this.foods[i].x * GRID_SIZE + GRID_SIZE / 2,
-          this.foods[i].y * GRID_SIZE + GRID_SIZE / 2,
+          this.foods[i].x * Config.GRID_SIZE + Config.GRID_SIZE / 2,
+          this.foods[i].y * Config.GRID_SIZE + Config.GRID_SIZE / 2,
         );
-        spr.width = spr.height = GRID_SIZE * pulse;
+        spr.width = spr.height = Config.GRID_SIZE * pulse;
       } else {
         spr.visible = false;
       }
@@ -264,11 +267,11 @@ export class GameScene extends Scene {
       this.lifeFoodSprite.visible = true;
       const lifePulse = 1 + Math.sin(this.lifeFoodPhase) * 0.15;
       this.lifeFoodSprite.position.set(
-        this.lifeFood.x * GRID_SIZE + GRID_SIZE / 2,
-        this.lifeFood.y * GRID_SIZE + GRID_SIZE / 2,
+        this.lifeFood.x * Config.GRID_SIZE + Config.GRID_SIZE / 2,
+        this.lifeFood.y * Config.GRID_SIZE + Config.GRID_SIZE / 2,
       );
       this.lifeFoodSprite.width = this.lifeFoodSprite.height =
-        GRID_SIZE * 1.2 * lifePulse;
+        Config.GRID_SIZE * 1.2 * lifePulse;
     } else {
       this.lifeFoodSprite.visible = false;
     }
@@ -287,8 +290,8 @@ export class GameScene extends Scene {
     this.snake.forEach((seg, i) => {
       const spr = this.bodySprites[i];
       spr.position.set(
-        seg.x * GRID_SIZE + GRID_SIZE / 2,
-        seg.y * GRID_SIZE + GRID_SIZE / 2,
+        seg.x * Config.GRID_SIZE + Config.GRID_SIZE / 2,
+        seg.y * Config.GRID_SIZE + Config.GRID_SIZE / 2,
       );
 
       let segDir;
@@ -302,19 +305,18 @@ export class GameScene extends Scene {
       }
 
       spr.rotation = this._getOrientation(segDir);
-      spr.scale.set(GRID_SIZE / spr.texture.width);
+      spr.scale.set(Config.GRID_SIZE / spr.texture.width);
       if (!this.isBlinking) spr.alpha = i === 0 ? 1 : 0.8;
     });
   }
 
   handleResize() {
-    const gameW = COLUMNS * GRID_SIZE;
-    const gameH = ROWS * GRID_SIZE;
+    const gameW = Config.COLUMNS * Config.GRID_SIZE;
+    const gameH = Config.ROWS * Config.GRID_SIZE;
 
     this.gameContainer.x = (this.app.screen.width - gameW) / 2;
     this.gameContainer.y = (this.app.screen.height - gameH) / 2;
 
-    // FIXED: PixiJS v8 syntax for drawing and filling/stroking shapes
     this.uiGraphics
       .clear()
       .rect(this.gameContainer.x, this.gameContainer.y, gameW, gameH)
@@ -323,28 +325,14 @@ export class GameScene extends Scene {
 
     this.scoreText.position.set(this.gameContainer.x, 20);
     this.livesText.position.set(this.gameContainer.x + 200, 20);
+
     this.pauseButton.position.set(this.gameContainer.x + gameW - 90, 20);
-    this.wrapButton.position.set(this.gameContainer.x + gameW - 240, 20);
+    this.wrapToggle.position.set(this.gameContainer.x + gameW - 200, 22);
+
     this.resetButton.position.set(
       this.app.screen.width / 2 - 50,
       this.app.screen.height - 50,
     );
-  }
-
-  handleKey(e) {
-    if (e.key === " ") this.togglePause();
-    if (this.isPaused || this.isGameOver) return;
-    const keys = {
-      ArrowUp: { x: 0, y: -1 },
-      ArrowDown: { x: 0, y: 1 },
-      ArrowLeft: { x: -1, y: 0 },
-      ArrowRight: { x: 1, y: 0 },
-    };
-    if (keys[e.key]) {
-      const move = keys[e.key];
-      if (move.x !== -this.direction.x && move.y !== -this.direction.y)
-        this.nextDirection = move;
-    }
   }
 
   loseLife() {
@@ -357,20 +345,13 @@ export class GameScene extends Scene {
   triggerGameOver() {
     this.isGameOver = true;
     this.isPaused = true;
-    this.pauseButton.children[1].text = "RESTART";
+    this.pauseButton.labelTxt.text = "RESTART";
   }
 
   togglePause() {
     if (this.isGameOver || this.isBlinking) return;
     this.isPaused = !this.isPaused;
-    this.pauseButton.children[1].text = this.isPaused ? "RESUME" : "PAUSE";
-  }
-
-  toggleWrap() {
-    this.isWrapMode = !this.isWrapMode;
-    this.wrapButton.children[1].text = this.isWrapMode
-      ? "WRAP: ON"
-      : "WRAP: OFF";
+    this.pauseButton.labelTxt.text = this.isPaused ? "RESUME" : "PAUSE";
   }
 
   updateLivesText() {
@@ -379,12 +360,12 @@ export class GameScene extends Scene {
 
   resetGame() {
     this.snake = [
-      { x: CENTER_X, y: CENTER_Y },
-      { x: CENTER_X, y: CENTER_Y + 1 },
+      { x: Config.CENTER_X, y: Config.CENTER_Y },
+      { x: Config.CENTER_X, y: Config.CENTER_Y + 1 },
     ];
     this.direction = this.nextDirection = { x: 0, y: -1 };
     this.score = 0;
-    this.lives = INITIAL_LIVES;
+    this.lives = Config.INITIAL_LIVES;
     this.isPaused = false;
     this.isGameOver = false;
     this.isBlinking = false;
@@ -396,14 +377,14 @@ export class GameScene extends Scene {
     this.foodForNextLife = 5 + Math.floor(Math.random() * 5);
     this.foods = [];
 
-    for (let i = 0; i < FOOD_COUNT; i++) {
+    for (let i = 0; i < Config.FOOD_COUNT; i++) {
       const pos = this._randomEmpty(this._buildOccupied());
       if (pos) this.foods.push({ x: pos.x, y: pos.y });
     }
 
     this.updateLivesText();
     this.scoreText.text = "SCORE: 0";
-    if (this.pauseButton) this.pauseButton.children[1].text = "PAUSE";
+    if (this.pauseButton) this.pauseButton.labelTxt.text = "PAUSE";
   }
 
   respawnFood(index) {
@@ -433,8 +414,8 @@ export class GameScene extends Scene {
 
   _randomEmpty(occupied) {
     const pool = [];
-    for (let x = 0; x < COLUMNS; x++)
-      for (let y = 0; y < ROWS; y++)
+    for (let x = 0; x < Config.COLUMNS; x++)
+      for (let y = 0; y < Config.ROWS; y++)
         if (!occupied.has(this._cellKey(x, y))) pool.push({ x, y });
     return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
   }
@@ -445,25 +426,5 @@ export class GameScene extends Scene {
     if (dir.x === -1 && dir.y === 0) return -Math.PI / 2;
     if (dir.x === 1 && dir.y === 0) return Math.PI / 2;
     return 0;
-  }
-
-  _createButton(label, width, onClick) {
-    const btn = new Container();
-
-    // FIXED: PixiJS v8 chaining sequence. Call roundRect, then fill.
-    const bg = new Graphics().roundRect(0, 0, width, 30, 6).fill("#444444");
-
-    const txt = new Text({
-      text: label,
-      style: { fill: "#ffffff", fontSize: 14 },
-    });
-    txt.anchor.set(0.5);
-    txt.position.set(width / 2, 15);
-    btn.addChild(bg, txt);
-    btn.eventMode = "static";
-    btn.cursor = "pointer";
-    btn.on("pointerdown", onClick);
-    this.addChild(btn);
-    return btn;
   }
 }
