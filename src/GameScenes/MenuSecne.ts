@@ -8,49 +8,51 @@ export class MenuScene extends Scene {
   }
 
   override async init(): Promise<void> {
-    const titleContainer = new Container();
-    titleContainer.x = 500;
-    titleContainer.y = 200;
+    const screenCenter = {
+      x: this.app.screen.width / 2,
+      y: this.app.screen.height / 2
+    };
 
+    // 1. Create a Main Wrapper
+    const mainUI = new Container();
+    mainUI.x = screenCenter.x;
+    mainUI.y = screenCenter.y;
+
+    // 2. Title Setup
     const title = new Text({
       text: "🐍 Snake Game",
-      style: {
-        fill: "#ffffff",
-        fontSize: 48,
-        fontWeight: "bold",
-      },
+      style: { fill: "#ffffff", fontSize: 48, fontWeight: "bold" },
     });
+    title.anchor.set(0.5); 
+    title.y = -80;        
+    mainUI.addChild(title);
 
-    title.anchor.set(0.5);
-    title.x = 400;
-    title.y = 200;
-    titleContainer.addChild(title);
-
+    // 3. Button Setup
+    const btnWidth = 200;
+    const btnHeight = 60;
     const btnContainer = new Container();
-    const bg = new Graphics().fill("#444").roundRect(0, 0, 200, 60, 10).fill();
+    
+    const bg = new Graphics()
+      .fill("#444")
+      .roundRect(-btnWidth / 2, -btnHeight / 2, btnWidth, btnHeight, 10) 
+      .fill();
 
     const label = new Text({
       text: "PLAY",
       style: { fill: "#ffffff", fontSize: 20 },
     });
-
-    label.anchor.set(0.5);
-    label.x = 100;
-    label.y = 30;
+    label.anchor.set(0.5); 
 
     btnContainer.addChild(bg, label);
+    
+    btnContainer.y = 50; 
 
     const playButton = new Button(btnContainer);
-
-    btnContainer.x = 300;
-    btnContainer.y = 350;
-
     playButton.onPress.connect(() => {
-      // Need to cast to any or your SceneManager type here because standard Container parent doesn't have changeScene
       (this.parent as any).changeScene(SceneName.Game);
     });
 
-    titleContainer.addChild(btnContainer);
-    this.addChild(titleContainer);
+    mainUI.addChild(btnContainer);
+    this.addChild(mainUI);
   }
 }

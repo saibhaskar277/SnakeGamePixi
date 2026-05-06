@@ -18,7 +18,9 @@ export class Scene extends Container {
 
   async init(): Promise<void> {}
   onEnter(): void {}
-  update(ticker: Ticker): void {}
+  update(ticker: Ticker): void {
+    ticker.deltaMS;
+  }
   onExit(): void {}
   onResize(): void {}
 }
