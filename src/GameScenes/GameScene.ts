@@ -1,25 +1,68 @@
-import { Scene, SceneName } from "../SceneManager.js";
-import { Container, Assets, Sprite, Graphics, Text } from "pixi.js";
-import { GameConfig as Config } from "../GameConfig.js";
-import { InputManager } from "../InputManager.js";
-import { UIFactory } from "../UIFactory.js";
+import { Scene, SceneName } from "../SceneManager";
+import { Container, Assets, Sprite, Graphics, Text, Application, Texture, Ticker } from "pixi.js";
+import { GameConfig as Config, Point } from "../GameConfig";
+import { InputManager } from "../InputManager";
+import { UIFactory, CustomButton } from "../UIFactory";
 
 export class GameScene extends Scene {
-  constructor(app) {
+  // Asset Textures
+  private headTexture!: Texture;
+  private bodyTexture!: Texture;
+  private foodTexture!: Texture;
+  private lifeFoodTexture!: Texture;
+
+  // Containers & Graphics
+  private uiGraphics!: Graphics;
+  private gameContainer!: Container;
+  private bodyContainer!: Container;
+  private foodContainer!: Container;
+  private scoreText!: Text;
+  private livesText!: Text;
+
+  // Sprites
+  private bodySprites: Sprite[] = [];
+  private foodSprites: Sprite[] = [];
+  private lifeFoodSprite!: Sprite;
+
+  // UI Controls
+  private pauseButton!: CustomButton;
+  private resetButton!: CustomButton;
+  private wrapToggle!: Container;
+
+  // Game State
+  private inputManager!: InputManager;
+  private snake: Point[] = [];
+  private foods: Point[] = [];
+  private direction: Point = { x: 0, y: -1 };
+  private nextDirection: Point = { x: 0, y: -1 };
+  
+  private score: number = 0;
+  private lives: number = Config.INITIAL_LIVES;
+  private isPaused: boolean = false;
+  private isGameOver: boolean = false;
+  private isWrapMode: boolean = false;
+  private isBlinking: boolean = false;
+  
+  private accumulator: number = 0;
+  private tickCounter: number = 0;
+  private blinkTimer: number = 0;
+  
+  // Life Food logic
+  private foodCollected: number = 0;
+  private lifeFood: Point | null = null;
+  private lifeFoodTimer: number = 0;
+  private lifeFoodPhase: number = 0;
+  private foodForNextLife: number = 0;
+
+  constructor(app: Application) {
     super(SceneName.Game, app);
   }
 
-  async init() {
-    this.headTexture = await Assets.load(
-      "Assets/SnakeGameSprites/snakeHead.png",
-    );
-    this.bodyTexture = await Assets.load(
-      "Assets/SnakeGameSprites/snakeBody.png",
-    );
+  override async init(): Promise<void> {
+    this.headTexture = await Assets.load("Assets/SnakeGameSprites/snakeHead.png");
+    this.bodyTexture = await Assets.load("Assets/SnakeGameSprites/snakeBody.png");
     this.foodTexture = await Assets.load("Assets/SnakeGameSprites/food.png");
-    this.lifeFoodTexture = await Assets.load(
-      "Assets/SnakeGameSprites/health.png",
-    );
+    this.lifeFoodTexture = await Assets.load("Assets/SnakeGameSprites/health.png");
 
     this.uiGraphics = new Graphics();
     this.gameContainer = new Container();
@@ -30,9 +73,6 @@ export class GameScene extends Scene {
     this.gameContainer.addChild(this.foodContainer);
     this.addChild(this.uiGraphics);
     this.addChild(this.gameContainer);
-
-    this.bodySprites = [];
-    this.foodSprites = [];
 
     for (let i = 0; i < Config.FOOD_COUNT; i++) {
       const s = new Sprite(this.foodTexture);
@@ -56,29 +96,21 @@ export class GameScene extends Scene {
     });
     this.addChild(this.scoreText, this.livesText);
 
-    // Using UIFactory
     this.pauseButton = UIFactory.createButton("PAUSE", 80, () =>
-      this.isGameOver ? this.resetGame() : this.togglePause(),
+      this.isGameOver ? this.resetGame() : this.togglePause()
     );
-    this.resetButton = UIFactory.createButton("RESET", 100, () =>
-      this.resetGame(),
-    );
+    this.resetButton = UIFactory.createButton("RESET", 100, () => this.resetGame());
 
     this.isWrapMode = false;
-    this.wrapToggle = UIFactory.createToggle(
-      "WRAP",
-      this.isWrapMode,
-      (checked) => {
-        this.isWrapMode = checked;
-      },
-    );
+    this.wrapToggle = UIFactory.createToggle("WRAP", this.isWrapMode, (checked: boolean) => {
+      this.isWrapMode = checked;
+    });
 
     this.addChild(this.pauseButton, this.resetButton, this.wrapToggle);
 
-    // Using InputManager
     this.inputManager = new InputManager({
       onPauseToggle: () => this.togglePause(),
-      onDirectionChange: (move) => this.handleDirectionInput(move),
+      onDirectionChange: (move: Point) => this.handleDirectionInput(move),
     });
     this.inputManager.start();
 
@@ -86,27 +118,26 @@ export class GameScene extends Scene {
     this.handleResize();
   }
 
-  onEnter() {
+  override onEnter() {
     this.handleResize();
   }
 
-  onResize() {
+  override onResize() {
     this.handleResize();
   }
 
-  destroyScene() {
+  override onExit() {
     this.inputManager.stop();
-    super.destroyScene();
   }
 
-  handleDirectionInput(move) {
+  handleDirectionInput(move: Point) {
     if (this.isPaused || this.isGameOver) return;
     if (move.x !== -this.direction.x && move.y !== -this.direction.y) {
       this.nextDirection = move;
     }
   }
 
-  update(ticker) {
+  override update(ticker: Ticker) {
     if (this.isPaused && !this.isBlinking) return;
 
     const dt = ticker.deltaMS;
@@ -163,10 +194,7 @@ export class GameScene extends Scene {
       if (head.y < 0) head.y = Config.ROWS - 1;
       else if (head.y >= Config.ROWS) head.y = 0;
     } else if (
-      head.x < 0 ||
-      head.x >= Config.COLUMNS ||
-      head.y < 0 ||
-      head.y >= Config.ROWS
+      head.x < 0 || head.x >= Config.COLUMNS || head.y < 0 || head.y >= Config.ROWS
     ) {
       this.loseLife();
       return;
@@ -194,11 +222,7 @@ export class GameScene extends Scene {
       }
     }
 
-    if (
-      this.lifeFood &&
-      head.x === this.lifeFood.x &&
-      head.y === this.lifeFood.y
-    ) {
+    if (this.lifeFood && head.x === this.lifeFood.x && head.y === this.lifeFood.y) {
       this.lives = Math.min(this.lives + 1, Config.MAX_LIVES);
       this.updateLivesText();
       this.lifeFood = null;
@@ -213,8 +237,7 @@ export class GameScene extends Scene {
       this.lifeFood = { x: pos.x, y: pos.y };
       this.lifeFoodTimer = Config.LIFE_FOOD_DURATION;
       this.lifeFoodPhase = 0;
-      this.foodForNextLife =
-        this.foodCollected + 5 + Math.floor(Math.random() * 6);
+      this.foodForNextLife = this.foodCollected + 5 + Math.floor(Math.random() * 6);
     }
   }
 
@@ -229,15 +252,8 @@ export class GameScene extends Scene {
       const occ = this._buildOccupied(f);
       const shuffled = DIRS.slice().sort(() => Math.random() - 0.5);
       for (const d of shuffled) {
-        const nx = f.x + d.x,
-          ny = f.y + d.y;
-        if (
-          nx >= 0 &&
-          nx < Config.COLUMNS &&
-          ny >= 0 &&
-          ny < Config.ROWS &&
-          !occ.has(this._cellKey(nx, ny))
-        ) {
+        const nx = f.x + d.x, ny = f.y + d.y;
+        if (nx >= 0 && nx < Config.COLUMNS && ny >= 0 && ny < Config.ROWS && !occ.has(this._cellKey(nx, ny))) {
           f.x = nx;
           f.y = ny;
           break;
@@ -255,7 +271,7 @@ export class GameScene extends Scene {
         spr.visible = true;
         spr.position.set(
           this.foods[i].x * Config.GRID_SIZE + Config.GRID_SIZE / 2,
-          this.foods[i].y * Config.GRID_SIZE + Config.GRID_SIZE / 2,
+          this.foods[i].y * Config.GRID_SIZE + Config.GRID_SIZE / 2
         );
         spr.width = spr.height = Config.GRID_SIZE * pulse;
       } else {
@@ -268,10 +284,9 @@ export class GameScene extends Scene {
       const lifePulse = 1 + Math.sin(this.lifeFoodPhase) * 0.15;
       this.lifeFoodSprite.position.set(
         this.lifeFood.x * Config.GRID_SIZE + Config.GRID_SIZE / 2,
-        this.lifeFood.y * Config.GRID_SIZE + Config.GRID_SIZE / 2,
+        this.lifeFood.y * Config.GRID_SIZE + Config.GRID_SIZE / 2
       );
-      this.lifeFoodSprite.width = this.lifeFoodSprite.height =
-        Config.GRID_SIZE * 1.2 * lifePulse;
+      this.lifeFoodSprite.width = this.lifeFoodSprite.height = Config.GRID_SIZE * 1.2 * lifePulse;
     } else {
       this.lifeFoodSprite.visible = false;
     }
@@ -284,14 +299,15 @@ export class GameScene extends Scene {
       this.bodySprites.push(s);
     }
     while (this.bodySprites.length > this.snake.length) {
-      this.bodyContainer.removeChild(this.bodySprites.pop()).destroy();
+      const spriteToDestroy = this.bodySprites.pop()!;
+      this.bodyContainer.removeChild(spriteToDestroy).destroy();
     }
 
     this.snake.forEach((seg, i) => {
       const spr = this.bodySprites[i];
       spr.position.set(
         seg.x * Config.GRID_SIZE + Config.GRID_SIZE / 2,
-        seg.y * Config.GRID_SIZE + Config.GRID_SIZE / 2,
+        seg.y * Config.GRID_SIZE + Config.GRID_SIZE / 2
       );
 
       let segDir;
@@ -329,10 +345,7 @@ export class GameScene extends Scene {
     this.pauseButton.position.set(this.gameContainer.x + gameW - 90, 20);
     this.wrapToggle.position.set(this.gameContainer.x + gameW - 200, 22);
 
-    this.resetButton.position.set(
-      this.app.screen.width / 2 - 50,
-      this.app.screen.height - 50,
-    );
+    this.resetButton.position.set(this.app.screen.width / 2 - 50, this.app.screen.height - 50);
   }
 
   loseLife() {
@@ -387,7 +400,7 @@ export class GameScene extends Scene {
     if (this.pauseButton) this.pauseButton.labelTxt.text = "PAUSE";
   }
 
-  respawnFood(index) {
+  respawnFood(index: number) {
     const pos = this._randomEmpty(this._buildOccupied());
     if (pos) {
       this.foods[index].x = pos.x;
@@ -395,32 +408,31 @@ export class GameScene extends Scene {
     }
   }
 
-  _lerp(start, end, t) {
+  private _lerp(start: number, end: number, t: number): number {
     return start + (end - start) * t;
   }
 
-  _cellKey(x, y) {
+  private _cellKey(x: number, y: number): string {
     return `${x},${y}`;
   }
 
-  _buildOccupied(excludeFood = null) {
-    const s = new Set();
+  private _buildOccupied(excludeFood: Point | null = null): Set<string> {
+    const s = new Set<string>();
     for (const seg of this.snake) s.add(this._cellKey(seg.x, seg.y));
-    for (const f of this.foods)
-      if (f !== excludeFood) s.add(this._cellKey(f.x, f.y));
+    for (const f of this.foods) if (f !== excludeFood) s.add(this._cellKey(f.x, f.y));
     if (this.lifeFood) s.add(this._cellKey(this.lifeFood.x, this.lifeFood.y));
     return s;
   }
 
-  _randomEmpty(occupied) {
-    const pool = [];
+  private _randomEmpty(occupied: Set<string>): Point | null {
+    const pool: Point[] = [];
     for (let x = 0; x < Config.COLUMNS; x++)
       for (let y = 0; y < Config.ROWS; y++)
         if (!occupied.has(this._cellKey(x, y))) pool.push({ x, y });
     return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
   }
 
-  _getOrientation(dir) {
+  private _getOrientation(dir: Point): number {
     if (dir.x === 0 && dir.y === -1) return 0;
     if (dir.x === 0 && dir.y === 1) return Math.PI;
     if (dir.x === -1 && dir.y === 0) return -Math.PI / 2;

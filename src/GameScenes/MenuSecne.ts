@@ -1,13 +1,13 @@
-import { Scene, SceneName } from "../SceneManager.js";
-import { Text, Graphics, Container } from "pixi.js";
+import { Scene, SceneName } from "../SceneManager";
+import { Text, Graphics, Container, Application } from "pixi.js";
 import { Button } from "@pixi/ui";
 
 export class MenuScene extends Scene {
-  constructor() {
-    super(SceneName.MainMenu);
+  constructor(app: Application) {
+    super(SceneName.MainMenu, app);
   }
 
-  init() {
+  override async init(): Promise<void> {
     const titleContainer = new Container();
     titleContainer.x = 500;
     titleContainer.y = 200;
@@ -27,7 +27,6 @@ export class MenuScene extends Scene {
     titleContainer.addChild(title);
 
     const btnContainer = new Container();
-
     const bg = new Graphics().fill("#444").roundRect(0, 0, 200, 60, 10).fill();
 
     const label = new Text({
@@ -43,13 +42,15 @@ export class MenuScene extends Scene {
 
     const playButton = new Button(btnContainer);
 
-    playButton.view.x = 300;
-    playButton.view.y = 350;
+    btnContainer.x = 300;
+    btnContainer.y = 350;
 
     playButton.onPress.connect(() => {
-      this.parent.changeScene(SceneName.Game);
+      // Need to cast to any or your SceneManager type here because standard Container parent doesn't have changeScene
+      (this.parent as any).changeScene(SceneName.Game);
     });
-    titleContainer.addChild(playButton.view);
+
+    titleContainer.addChild(btnContainer);
     this.addChild(titleContainer);
   }
 }

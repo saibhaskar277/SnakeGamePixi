@@ -1,10 +1,17 @@
-import { Application } from "pixi.js";
-import { sceneManager, SceneName } from "./SceneManager.js";
-import { GameScene } from "./GameScenes/GameScene.js";
-import { MenuScene } from "./GameScenes/MenuSecne.js";
+import { Application, Ticker } from "pixi.js";
+import { sceneManager, SceneName } from "./SceneManager";
+import { GameScene } from "../src/GameScenes/GameScene";
+import { MenuScene } from "../src/GameScenes/MenuSecne";
+
+// Declare global properties for TypeScript
+declare global {
+  var __PIXI_APP__: Application;
+}
+
 async function start() {
   const app = new Application();
   globalThis.__PIXI_APP__ = app;
+  
   await app.init({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -25,10 +32,10 @@ async function start() {
   sceneManager.addScene(new MenuScene(app));
   await sceneManager.changeScene(SceneName.MainMenu);
 
-  app.ticker.add((ticker) => sceneManager.update(ticker));
+  app.ticker.add((ticker: Ticker) => sceneManager.update(ticker));
 
   window.addEventListener("resize", () => {
-    sceneManager.onResize(app.screen.width, app.screen.height);
+    sceneManager.onResize();
   });
 }
 

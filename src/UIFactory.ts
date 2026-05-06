@@ -1,17 +1,16 @@
 import { Container, Graphics, Text } from "pixi.js";
 import { FancyButton, CheckBox } from "@pixi/ui";
 
+// Extend FancyButton to type the custom labelTxt property you attached
+export interface CustomButton extends FancyButton {
+  labelTxt: Text;
+}
+
 export class UIFactory {
-  static createButton(label, width, onClick) {
-    const defaultView = new Graphics()
-      .roundRect(0, 0, width, 30, 6)
-      .fill("#444444");
-    const hoverView = new Graphics()
-      .roundRect(0, 0, width, 30, 6)
-      .fill("#555555");
-    const pressedView = new Graphics()
-      .roundRect(0, 0, width, 30, 6)
-      .fill("#222222");
+  static createButton(label: string, width: number, onClick: () => void): CustomButton {
+    const defaultView = new Graphics().roundRect(0, 0, width, 30, 6).fill("#444444");
+    const hoverView = new Graphics().roundRect(0, 0, width, 30, 6).fill("#555555");
+    const pressedView = new Graphics().roundRect(0, 0, width, 30, 6).fill("#222222");
 
     const txt = new Text({
       text: label,
@@ -23,7 +22,7 @@ export class UIFactory {
       hoverView,
       pressedView,
       text: txt,
-    });
+    }) as CustomButton;
 
     btn.labelTxt = txt;
     btn.onPress.connect(onClick);
@@ -31,26 +30,22 @@ export class UIFactory {
     return btn;
   }
 
-  static createToggle(labelText, initialState, onChange) {
+  static createToggle(labelText: string, initialState: boolean, onChange: (checked: boolean) => void): Container {
     const toggleContainer = new Container();
 
     const uncheckedView = new Container();
-    uncheckedView.addChild(
-      new Graphics().roundRect(0, 0, 46, 24, 12).fill("#444444"),
-    );
+    uncheckedView.addChild(new Graphics().roundRect(0, 0, 46, 24, 12).fill("#444444"));
     uncheckedView.addChild(new Graphics().circle(12, 12, 9).fill("#aaaaaa"));
 
     const checkedView = new Container();
-    checkedView.addChild(
-      new Graphics().roundRect(0, 0, 46, 24, 12).fill("#4CAF50"),
-    );
+    checkedView.addChild(new Graphics().roundRect(0, 0, 46, 24, 12).fill("#4CAF50"));
     checkedView.addChild(new Graphics().circle(34, 12, 9).fill("#ffffff"));
 
     const checkBox = new CheckBox({
       style: { unchecked: uncheckedView, checked: checkedView },
       checked: initialState,
     });
-    checkBox.onChange.connect(onChange);
+    checkBox.onChange.connect(() => onChange(checkBox.checked));
 
     const label = new Text({
       text: labelText,

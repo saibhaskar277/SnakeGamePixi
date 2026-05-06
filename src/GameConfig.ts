@@ -16,4 +16,9 @@ export const GameConfig = {
   get CENTER_Y() {
     return Math.floor(this.ROWS / 2);
   },
-};
+} as const;
+
+export interface Point {
+  x: number;
+  y: number;
+}

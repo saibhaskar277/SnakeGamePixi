@@ -1,14 +1,21 @@
+import { Point } from "./GameConfig";
+
+export interface InputManagerCallbacks {
+  onDirectionChange?: (move: Point) => void;
+  onPauseToggle?: () => void;
+}
+
 export class InputManager {
-  constructor(callbacks = {}) {
-    // Callbacks provided by the scene
+  private onDirectionChange: (move: Point) => void;
+  private onPauseToggle: () => void;
+  private _keyHandler: (e: KeyboardEvent) => void;
+
+  constructor(callbacks: InputManagerCallbacks = {}) {
     this.onDirectionChange = callbacks.onDirectionChange || (() => {});
     this.onPauseToggle = callbacks.onPauseToggle || (() => {});
-
-    // Bind the handler to maintain 'this' context
     this._keyHandler = this.handleKey.bind(this);
   }
 
-  // Start listening to events
   start() {
     window.addEventListener("keydown", this._keyHandler);
   }
@@ -17,15 +24,13 @@ export class InputManager {
     window.removeEventListener("keydown", this._keyHandler);
   }
 
-  handleKey(e) {
-    // Handle Pause
+  handleKey(e: KeyboardEvent) {
     if (e.key === " ") {
       this.onPauseToggle();
       return;
     }
 
-    // Handle Movement
-    const keys = {
+    const keys: Record<string, Point> = {
       ArrowUp: { x: 0, y: -1 },
       ArrowDown: { x: 0, y: 1 },
       ArrowLeft: { x: -1, y: 0 },

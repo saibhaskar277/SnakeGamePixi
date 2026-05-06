@@ -1,25 +1,33 @@
-import { Container } from "pixi.js";
+import { Container, Application, Ticker } from "pixi.js";
 
 export const SceneName = {
   Game: "Game",
   MainMenu: "MainMenu",
-};
+} as const;
 
 export class Scene extends Container {
-  constructor(name, app) {
+  public name: string;
+  public app: Application;
+  public initialized: boolean = false;
+
+  constructor(name: string, app: Application) {
     super();
     this.name = name;
     this.app = app;
-    this.initialized = false;
   }
-  async init() {}
-  onEnter() {}
-  update(ticker) {}
-  onExit() {}
-  onResize(w, h) {}
+
+  async init(): Promise<void> {}
+  onEnter(): void {}
+  update(ticker: Ticker): void {}
+  onExit(): void {}
+  onResize(): void {}
 }
 
 class SceneManager extends Container {
+  private scenes: Map<string, Scene>;
+  public currentScene: Scene | null;
+  public app: Application | null;
+
   constructor() {
     super();
     this.scenes = new Map();
@@ -27,15 +35,15 @@ class SceneManager extends Container {
     this.app = null;
   }
 
-  init(app) {
+  init(app: Application) {
     this.app = app;
   }
 
-  addScene(scene) {
+  addScene(scene: Scene) {
     this.scenes.set(scene.name, scene);
   }
 
-  async changeScene(name) {
+  async changeScene(name: string) {
     if (this.currentScene) {
       this.currentScene.onExit();
       this.removeChild(this.currentScene);
@@ -54,12 +62,12 @@ class SceneManager extends Container {
     newScene.onEnter();
   }
 
-  update(ticker) {
+  update(ticker: Ticker) {
     if (this.currentScene) this.currentScene.update(ticker);
   }
 
-  onResize(w, h) {
-    if (this.currentScene) this.currentScene.onResize(w, h);
+  onResize() {
+    if (this.currentScene) this.currentScene.onResize();
   }
 }
 
