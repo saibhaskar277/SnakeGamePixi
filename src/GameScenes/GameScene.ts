@@ -132,14 +132,14 @@ export class GameScene extends Scene {
   override async init(): Promise<void> {
     // Load image assets
     this.headTexture = await Assets.load(
-      "/Assets/SnakeGameSprites/snakeHead.png",
+      "/assets/SnakeGameSprites/snakeHead.png",
     );
     this.bodyTexture = await Assets.load(
-      "/Assets/SnakeGameSprites/snakeBody.png",
+      "/assets/SnakeGameSprites/snakeBody.png",
     );
-    this.foodTexture = await Assets.load("/Assets/SnakeGameSprites/food.png");
+    this.foodTexture = await Assets.load("/assets/SnakeGameSprites/food.png");
     this.lifeFoodTexture = await Assets.load(
-      "/Assets/SnakeGameSprites/health.png",
+      "/assets/SnakeGameSprites/health.png",
     );
 
     // Cache scales to avoid repeated divisions in the render loop
