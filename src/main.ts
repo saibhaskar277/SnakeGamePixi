@@ -7,7 +7,6 @@ import { MenuScene } from "../src/GameScenes/MenuSecne";
 declare global {
   var __PIXI_APP__: Application;
 }
-
 async function start() {
   const app = new Application();
   globalThis.__PIXI_APP__ = app;
