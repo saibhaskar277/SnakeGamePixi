@@ -11,7 +11,7 @@ declare global {
 async function start() {
   const app = new Application();
   globalThis.__PIXI_APP__ = app;
-  
+
   await app.init({
     width: window.innerWidth,
     height: window.innerHeight,
