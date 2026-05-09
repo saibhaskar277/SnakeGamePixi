@@ -1,16 +1,213 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PixiJS Snake v8</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { overflow: hidden; background: #1a1a1a; display: flex; align-items: center; justify-content: center; width: 100vw; height: 100vh; }
-        canvas { display: block; border: 2px solid #333; }
-    </style>
+  <meta charset="UTF-8" />
+  <!--
+    KEY MOBILE SETTINGS:
+    - width=device-width        → use real CSS pixels, not zoomed-out layout
+    - initial-scale=1.0         → no default zoom
+    - maximum-scale=1.0         → prevent iOS double-tap zoom
+    - user-scalable=no          → lock scale so the game never jumps
+    - viewport-fit=cover        → extend into notch / status-bar area (Android)
+  -->
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+  />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>PixiJS Snake v8</title>
+
+  <style>
+    /* ── Reset ─────────────────────────────────────────── */
+    *, *::before, *::after {
+      margin: 0; padding: 0;
+      box-sizing: border-box;
+    }
+
+    /* ── Full-screen shell ──────────────────────────────── */
+    html, body {
+      width: 100%;
+      /* Use dvh (dynamic viewport height) so the URL bar on Android/Chrome
+         doesn't cause a layout shift when it hides/shows.
+         Falls back to 100vh for older browsers.                          */
+      height: 100dvh;
+      overflow: hidden;
+      background: #111;
+      /* Prevent the browser from stealing touch events for scrolling/zooming */
+      touch-action: none;
+    }
+
+    /* The Pixi canvas is rendered into <body>; make it fill everything */
+    canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+      /* Crisp pixel art – no blurring when the canvas is scaled by CSS */
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      touch-action: none; /* ← prevents scroll/zoom steal on the canvas itself */
+    }
+
+    /* ── D-Pad overlay ──────────────────────────────────── */
+    #dpad {
+      position: fixed;
+      bottom: max(24px, env(safe-area-inset-bottom, 24px)); /* respect notch */
+      right:  max(24px, env(safe-area-inset-right,  24px));
+      /* 3×3 grid with the four arrows on cross positions */
+      display: grid;
+      grid-template-columns: repeat(3, 56px);
+      grid-template-rows:    repeat(3, 56px);
+      gap: 4px;
+      z-index: 100;
+      /* Semi-transparent so you can still see the game behind */
+      opacity: 0.85;
+      /* Fade in once the page loads */
+      animation: fadeIn .4s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 0.85; }
+    }
+
+    /* Individual arrow buttons */
+    .dpad-btn {
+      width:  56px;
+      height: 56px;
+      border-radius: 10px;
+      border: 2px solid rgba(255,255,255,0.18);
+      background: rgba(30, 30, 40, 0.72);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      color: #fff;
+      font-size: 22px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      /* Prevents callout / text selection on long-press */
+      -webkit-user-select: none;
+      user-select: none;
+      /* Remove the 300 ms tap delay on mobile */
+      touch-action: manipulation;
+      transition: background 0.08s, transform 0.08s, border-color 0.08s;
+    }
+
+    /* Pressed state (via JS class toggle) */
+    .dpad-btn.active {
+      background: rgba(255, 255, 255, 0.22);
+      border-color: rgba(255, 255, 255, 0.55);
+      transform: scale(0.91);
+    }
+
+    /* Grid placement: up=row1/col2, left=row2/col1, right=row2/col3, down=row3/col2 */
+    #btn-up    { grid-area: 1 / 2; }
+    #btn-left  { grid-area: 2 / 1; }
+    #btn-right { grid-area: 2 / 3; }
+    #btn-down  { grid-area: 3 / 2; }
+    /* The centre cell is empty (no element needed) */
+
+    /* ── Hide D-pad on non-touch devices (desktop) ──────── */
+    @media (hover: hover) and (pointer: fine) {
+      #dpad { display: none; }
+    }
+  </style>
 </head>
 <body>
-    <script type="module" src="./src/main.ts"></script>
+
+  <!--
+    D-pad touch controls.
+    Each button fires a synthetic KeyboardEvent (ArrowUp/Down/Left/Right)
+    so the existing InputManager picks them up without any modification.
+  -->
+  <div id="dpad" aria-label="Directional pad">
+    <button id="btn-up"    class="dpad-btn" aria-label="Up">▲</button>
+    <button id="btn-left"  class="dpad-btn" aria-label="Left">◀</button>
+    <button id="btn-right" class="dpad-btn" aria-label="Right">▶</button>
+    <button id="btn-down"  class="dpad-btn" aria-label="Down">▼</button>
+  </div>
+
+  <script>
+    // ── D-pad → Keyboard bridge ──────────────────────────────────────────────
+    //
+    // Fires real KeyboardEvents so InputManager.ts doesn't need any changes.
+    // Uses both touchstart (instant response) and touchend (key-up) so the
+    // browser's own "held key" repeat logic also works correctly.
+
+    const MAP = {
+      'btn-up':    'ArrowUp',
+      'btn-down':  'ArrowDown',
+      'btn-left':  'ArrowLeft',
+      'btn-right': 'ArrowRight',
+    };
+
+    function fireKey(code, type) {
+      window.dispatchEvent(
+        new KeyboardEvent(type, {
+          key:       code,
+          code:      code,
+          bubbles:   true,
+          cancelable: true,
+        })
+      );
+    }
+
+    Object.entries(MAP).forEach(([id, code]) => {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+
+      // touchstart → keydown (instant, no 300 ms delay)
+      btn.addEventListener('touchstart', (e) => {
+        e.preventDefault(); // block ghost mouse events
+        btn.classList.add('active');
+        fireKey(code, 'keydown');
+      }, { passive: false });
+
+      // touchend → keyup
+      btn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        btn.classList.remove('active');
+        fireKey(code, 'keyup');
+      }, { passive: false });
+
+      // touchcancel safety (e.g. incoming call interrupts touch)
+      btn.addEventListener('touchcancel', () => {
+        btn.classList.remove('active');
+        fireKey(code, 'keyup');
+      });
+
+      // Mouse fallback (desktop testing)
+      btn.addEventListener('mousedown', () => {
+        btn.classList.add('active');
+        fireKey(code, 'keydown');
+      });
+      btn.addEventListener('mouseup', () => {
+        btn.classList.remove('active');
+        fireKey(code, 'keyup');
+      });
+    });
+  </script>
+
+  <!--
+    Pixi app entry point.
+    IMPORTANT – in your main.ts / wherever you create the Application, use:
+
+        const app = new Application();
+        await app.init({
+          resizeTo: document.body,   // ← auto-resize on orientation change
+          resolution: window.devicePixelRatio || 1,  // ← sharp on Retina/HDPI
+          autoDensity: true,          // ← CSS pixels stay correct on HDPI
+          backgroundColor: 0x111111,
+          antialias: false,           // ← keep pixel art crisp
+        });
+        document.body.appendChild(app.canvas);
+
+    resizeTo: document.body makes Pixi call app.renderer.resize() whenever the
+    body changes size, which in turn triggers your SceneManager's onResize →
+    GameScene.handleResize() chain automatically.
+  -->
+  <script type="module" src="./src/main.ts"></script>
 </body>
 </html>

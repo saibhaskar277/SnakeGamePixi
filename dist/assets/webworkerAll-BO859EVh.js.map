@@ -1,0 +1,1 @@
+{"version":3,"file":"webworkerAll-BO859EVh.js","names":[],"sources":["../../node_modules/pixi.js/lib/environment-webworker/webworkerAll.mjs"],"sourcesContent":["import '../spritesheet/init.mjs';\nimport '../rendering/init.mjs';\nimport '../filters/init.mjs';\n\n\"use strict\";\n//# sourceMappingURL=webworkerAll.mjs.map\n"],"x_google_ignoreList":[0],"mappings":"oJAAiC,IACF,IACF"}
