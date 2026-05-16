@@ -1,24 +1,26 @@
 import { defineConfig } from "vite";
+import { fileURLToPath } from "url";
+import path from "path";
 
-export default defineConfig({
-  // 1. Relative base path: CRITICAL for Capacitor/Android.
-  // Without this, the app looks for scripts at the root of the phone instead of inside the app folder.
-  base: "./",
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+export default defineConfig(({ command }) => ({
+  // --- FIX: Explicitly match your case-sensitive GitHub Repo name ---
+  base: command === "build" ? "/Ludo_Pixi/" : "/",
 
   build: {
-    // 2. Where the compiled files go. Capacitor looks for this folder.
     outDir: "dist",
-
-    // 3. Optional: Ensuring the build is compatible with older mobile WebViews
-    target: "esnext",
-
-    // 4. Clean the folder before every build
     emptyOutDir: true,
 
-    // 5. Sourcemaps help you debug code on the phone via Chrome DevTools
-    sourcemap: true,
+    // "hidden" keeps sourcemaps fully detached from runtime execution strings
+    sourcemap: command === "build" ? "hidden" : true,
+
+    rollupOptions: {
+      input: path.resolve(__dirname, "index.html"),
+    },
+    target: "es2020",
   },
 
-  // 6. Assets configuration
-  publicDir: "public", // Make sure your snake sprites are in a folder named 'public'
-});
+  publicDir: "public",
+}));
