@@ -6,16 +6,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default defineConfig(({ command }) => ({
-  // --- FIX: Explicitly match your case-sensitive GitHub Repo name ---
-  base: command === "build" ? "/Ludo_Pixi/" : "/",
+  base: command === "build" ? "/SnakeGamePixi/" : "/",
 
   build: {
     outDir: "dist",
     emptyOutDir: true,
-
-    // "hidden" keeps sourcemaps fully detached from runtime execution strings
     sourcemap: command === "build" ? "hidden" : true,
-
     rollupOptions: {
       input: path.resolve(__dirname, "index.html"),
     },
